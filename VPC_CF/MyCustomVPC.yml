@@ -1,0 +1,238 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+# This CloudFormation template deploys a basic VPC / Network.  Specifically:
+# It deploys a VPC with 6 subnets (2 public, 2 private) across 3 Availability Zones
+# A NAT Gateway is used to provide egress for private subnets.
+# An Internet gateway to connect the VPC to Internet
+# The VPC and subnets are exported for use by other stacks.
+
+Resources:
+  # First, a VPC:
+  MyCustomVPC:
+    Type: AWS::EC2::VPC
+    Description: MyCustomVPC
+    Properties: 
+      CidrBlock: 10.0.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags: 
+        - Key: stack
+          Value: Demo
+
+ #Private and public sybnets distributed across 3 AZs 
+  PublicSubnetA:
+    Type: AWS::EC2::Subnet
+    Description: PublicSubnetA
+    Properties:
+      VpcId:
+        Ref: MyCustomVPC
+      CidrBlock: 10.0.0.0/24
+      AvailabilityZone: !Select [ 0, !GetAZs ]    # Get the first AZ in the list   
+      MapPublicIpOnLaunch: true
+      Tags:
+      - Key: stack
+        Value: Demo
+  PublicSubnetB:
+    Type: AWS::EC2::Subnet
+    Description: PublicSubnetB
+    Properties:
+      VpcId:
+        Ref: MyCustomVPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [ 1, !GetAZs ]    # Get the Second AZ in the list   
+      MapPublicIpOnLaunch: true
+      Tags:
+      - Key: stack
+        Value: Demo
+  PublicSubnetC:
+    Type: AWS::EC2::Subnet
+    Description: PublicSubnetC
+    Properties:
+      VpcId:
+        Ref: MyCustomVPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select [ 2, !GetAZs ]    # Get the third AZ in the list   
+      MapPublicIpOnLaunch: true
+      Tags:
+      - Key: stack
+        Value: Demo
+  PrivateSubnetA:
+    Type: AWS::EC2::Subnet
+    Description: PrivateSubnetA
+    Properties:
+      VpcId:
+        Ref: MyCustomVPC
+      CidrBlock: 10.0.3.0/24
+      AvailabilityZone: !Select [ 0, !GetAZs ]    # Get the first AZ in the list   
+      Tags:
+      - Key: stack
+        Value: Demo  
+  PrivateSubnetB:
+    Type: AWS::EC2::Subnet
+    Description: PrivateSubnetB
+    Properties:
+      VpcId:
+        Ref: MyCustomVPC
+      CidrBlock: 10.0.4.0/24
+      AvailabilityZone: !Select [ 1, !GetAZs ]    # Get the Second AZ in the list   
+      Tags:
+      - Key: stack
+        Value: Demo
+  PrivateSubnetC:
+    Type: AWS::EC2::Subnet
+    Description: PrivateSubnetC
+    Properties:
+      VpcId:
+        Ref: MyCustomVPC
+      CidrBlock: 10.0.5.0/24
+      AvailabilityZone: !Select [ 2, !GetAZs ]    # Get the third AZ in the list   
+      Tags:
+      - Key: stack
+        Value: Demo
+
+#Create Internet Gatway to allow VPC to connect to interney
+  MyInternetGateway:
+    Type: AWS::EC2::InternetGateway
+    DependsOn: MyCustomVPC
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    # Notice how you can't attach an IGW to a VPC unless both are created:
+    Properties:
+      VpcId: !Ref MyCustomVPC
+      InternetGatewayId: !Ref MyInternetGateway
+
+# Create a NAT Gateway in public subnet 
+  MyNATGateway:
+    Type: AWS::EC2::NatGateway
+    Properties: 
+      AllocationId: !GetAtt ElasticIPAddress.AllocationId
+      SubnetId: !Ref PublicSubnetA
+      Tags: 
+      - Key: stack
+        Value: Demo
+  ElasticIPAddress:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: VPC
+
+#Create Public and Private Route table
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:  
+        Ref: MyCustomVPC
+      Tags:
+      - Key: stack
+        Value: Demo
+  PublicRoute: #Add entry in route table for Internet gateway to connect internet
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId:
+        Ref: MyInternetGateway 
+
+  PrivateRouteTable: # Private route table to access internet via NAT gateway
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:  
+        Ref: MyCustomVPC
+      Tags:
+      - Key: stack
+        Value: Demo
+  PrivateRoute: #Add entry in route table for Internet gateway to connect internet
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId:
+        Ref: MyNATGateway 
+
+  # Attach the public subnets to public route tables and private subnets to Private route table
+  PublicSubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetA
+      RouteTableId: !Ref PublicRouteTable
+  PublicSubnetBRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetB
+      RouteTableId: !Ref PublicRouteTable
+  PublicSubnetCRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetC
+      RouteTableId: !Ref PublicRouteTable
+  PrivateSubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetA
+      RouteTableId: !Ref PrivateRouteTable
+  PrivateSubnetBRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetB
+      RouteTableId: !Ref PrivateRouteTable
+  PrivateSubnetCRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetC
+      RouteTableId: !Ref PrivateRouteTable
+
+# Create a security group for both public and private instances
+  MyPublicSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable SSH access via port 22 and internet access via port 80 and port 443
+      VpcId: !Ref MyCustomVPC
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: 443
+        ToPort: 443
+        CidrIp: 0.0.0.0/0
+
+  # Create a security group for  private instances
+  MyPrivateSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref MyCustomVPC
+      GroupDescription: Enable SSH access via port 22 
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 0.0.0.0/0  
+
+# Displays the Instance Id of the EC2 instance created above
+Outputs:
+  MyCustomVPCId:
+    Description: VPC Id
+    Value: !Ref MyCustomVPC
+  PublicSubnetAId:
+    Description: PublicSubnetA Id
+    Value: !Ref PublicSubnetA
+  PublicSubnetBId:
+    Description: PublicSubnetB Id
+    Value: !Ref PublicSubnetB
+  PublicSubnetCId:
+    Description: PublicSubnetC Id
+    Value: !Ref PublicSubnetC
+  PrivateSubnetAId:
+    Description: PrivateSubnetA Id
+    Value: !Ref PrivateSubnetA
+  PrivateSubnetBId:
+    Description: PrivateSubnetAId 
+    Value: !Ref PrivateSubnetB
+  PrivateSubnetCId:
+    Description: PrivateSubnetAId AId
+    Value: !Ref PrivateSubnetC
