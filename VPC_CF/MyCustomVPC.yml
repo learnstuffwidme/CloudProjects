@@ -1,13 +1,13 @@
 AWSTemplateFormatVersion: 2010-09-09
 
-# This CloudFormation template deploys a basic VPC / Network.  Specifically:
-# It deploys a VPC with 6 subnets (2 public, 2 private) across 3 Availability Zones
+# This CloudFormation template deploys a basic VPC / Network
+# This will deploy a VPC with 6 subnets (2 public, 2 private) across 3 Availability Zones
 # A NAT Gateway is used to provide egress for private subnets.
 # An Internet gateway to connect the VPC to Internet
 # The VPC and subnets are exported for use by other stacks.
 
 Resources:
-  # First, a VPC:
+  # First thing first, lets create a basic VPC
   MyCustomVPC:
     Type: AWS::EC2::VPC
     Description: MyCustomVPC
@@ -19,7 +19,7 @@ Resources:
         - Key: stack
           Value: Demo
 
- #Private and public sybnets distributed across 3 AZs 
+#Now Its time to create Private and public sbnets distributed across 3 AZs 
   PublicSubnetA:
     Type: AWS::EC2::Subnet
     Description: PublicSubnetA
@@ -27,7 +27,7 @@ Resources:
       VpcId:
         Ref: MyCustomVPC
       CidrBlock: 10.0.0.0/24
-      AvailabilityZone: !Select [ 0, !GetAZs ]    # Get the first AZ in the list   
+      AvailabilityZone: !Select [ 0, !GetAZs ]   # Get the first AZ
       MapPublicIpOnLaunch: true
       Tags:
       - Key: stack
@@ -39,7 +39,7 @@ Resources:
       VpcId:
         Ref: MyCustomVPC
       CidrBlock: 10.0.1.0/24
-      AvailabilityZone: !Select [ 1, !GetAZs ]    # Get the Second AZ in the list   
+      AvailabilityZone: !Select [ 1, !GetAZs ]   # Get the Second AZ
       MapPublicIpOnLaunch: true
       Tags:
       - Key: stack
@@ -51,7 +51,7 @@ Resources:
       VpcId:
         Ref: MyCustomVPC
       CidrBlock: 10.0.2.0/24
-      AvailabilityZone: !Select [ 2, !GetAZs ]    # Get the third AZ in the list   
+      AvailabilityZone: !Select [ 2, !GetAZs ]   # Get the third AZ
       MapPublicIpOnLaunch: true
       Tags:
       - Key: stack
@@ -63,7 +63,7 @@ Resources:
       VpcId:
         Ref: MyCustomVPC
       CidrBlock: 10.0.3.0/24
-      AvailabilityZone: !Select [ 0, !GetAZs ]    # Get the first AZ in the list   
+      AvailabilityZone: !Select [ 0, !GetAZs ]   # Get the first AZ
       Tags:
       - Key: stack
         Value: Demo  
@@ -74,7 +74,7 @@ Resources:
       VpcId:
         Ref: MyCustomVPC
       CidrBlock: 10.0.4.0/24
-      AvailabilityZone: !Select [ 1, !GetAZs ]    # Get the Second AZ in the list   
+      AvailabilityZone: !Select [ 1, !GetAZs ]   # Get the Second AZ
       Tags:
       - Key: stack
         Value: Demo
@@ -85,18 +85,17 @@ Resources:
       VpcId:
         Ref: MyCustomVPC
       CidrBlock: 10.0.5.0/24
-      AvailabilityZone: !Select [ 2, !GetAZs ]    # Get the third AZ in the list   
+      AvailabilityZone: !Select [ 2, !GetAZs ]   # Get the third AZ
       Tags:
       - Key: stack
         Value: Demo
 
-#Create Internet Gatway to allow VPC to connect to interney
+#Create Internet Gatway to allow VPC to connect to internet
   MyInternetGateway:
     Type: AWS::EC2::InternetGateway
     DependsOn: MyCustomVPC
   AttachGateway:
     Type: AWS::EC2::VPCGatewayAttachment
-    # Notice how you can't attach an IGW to a VPC unless both are created:
     Properties:
       VpcId: !Ref MyCustomVPC
       InternetGatewayId: !Ref MyInternetGateway
@@ -181,39 +180,7 @@ Resources:
       SubnetId: !Ref PrivateSubnetC
       RouteTableId: !Ref PrivateRouteTable
 
-# Create a security group for both public and private instances
-  MyPublicSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Enable SSH access via port 22 and internet access via port 80 and port 443
-      VpcId: !Ref MyCustomVPC
-      SecurityGroupIngress:
-      - IpProtocol: tcp
-        FromPort: 22
-        ToPort: 22
-        CidrIp: 0.0.0.0/0
-      - IpProtocol: tcp
-        FromPort: 80
-        ToPort: 80
-        CidrIp: 0.0.0.0/0
-      - IpProtocol: tcp
-        FromPort: 443
-        ToPort: 443
-        CidrIp: 0.0.0.0/0
-
-  # Create a security group for  private instances
-  MyPrivateSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      VpcId: !Ref MyCustomVPC
-      GroupDescription: Enable SSH access via port 22 
-      SecurityGroupIngress:
-      - IpProtocol: tcp
-        FromPort: 22
-        ToPort: 22
-        CidrIp: 0.0.0.0/0  
-
-# Displays the Instance Id of the EC2 instance created above
+# Displays the output
 Outputs:
   MyCustomVPCId:
     Description: VPC Id
@@ -236,3 +203,5 @@ Outputs:
   PrivateSubnetCId:
     Description: PrivateSubnetAId AId
     Value: !Ref PrivateSubnetC
+
+
